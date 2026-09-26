@@ -651,7 +651,9 @@ def generate_patch_rotation_circuit(
                Controls reset at (0,0,0) and measurement at (1,0,3).
     """
     layer_tree = create_patch_rotation_layer_tree(basis=basis)
-    circuit = layer_tree.generate_circuit(k, manhattan_radius=manhattan_radius)
+    circuit = layer_tree.generate_circuit(
+        k, manhattan_radius=manhattan_radius, reschedule_measurements=False
+    )
     
     # Add the correct observable
     circuit_with_obs = add_observable_from_missing_detector(circuit)

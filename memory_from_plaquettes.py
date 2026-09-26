@@ -1036,7 +1036,7 @@ def generate_memory_circuit(
     layer_tree = create_layer_tree(layers, [abstract_observable])
     
     # Generate the circuit with detectors
-    circuit = layer_tree.generate_circuit(k, manhattan_radius=2)
+    circuit = layer_tree.generate_circuit(k, manhattan_radius=2, reschedule_measurements=False)
     
     # Apply noise model if provided
     if noise_model is not None:
@@ -1095,7 +1095,7 @@ def generate_two_cube_circuit(
     layer_tree = create_layer_tree(layers, observables)
     
     # Generate the circuit with detectors
-    circuit = layer_tree.generate_circuit(k, manhattan_radius=2)
+    circuit = layer_tree.generate_circuit(k, manhattan_radius=2, reschedule_measurements=False)
     
     # Apply noise model if provided
     if noise_model is not None:

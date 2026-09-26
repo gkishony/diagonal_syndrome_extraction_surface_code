@@ -44,6 +44,30 @@ Outputs include:
 - Crumble URLs for visualization
 - Logical error rates and plot (when using `--error-rates`)
 
+#### 3. Flag-Aware Decoding of the Spatial Hadamard (`flag_aware_decoder.py`)
+
+The spatial Hadamard primitive measures flag qubits that herald the hook errors of
+the stretched stabilizers. `FlagAwareMatching` makes the flag-free pieces of those
+hyperedges conditional on the measured flags, so an unheralded hook is priced as two
+faults instead of one. Three strategies are available: `reweight` (one gated matching
+call), `iterative` (scored commitment of heralded mechanisms), and `hyperedge`
+(the same commitment, but any split mechanism may be proposed).
+
+```bash
+# Unit tests
+./venv/bin/python -m pytest test_flag_aware_decoder.py
+
+# How many faults each decoder needs before it fails; exhaustive up to --max-weight
+./venv/bin/python measure_decoder_fault_distance.py --k 1 --max-weight 2 --include-tesseract
+./venv/bin/python measure_decoder_fault_distance.py --k 3 --max-weight 2 --sample 120000
+
+# Logical error rate sweep with an effective-distance fit.  Progress is
+# checkpointed, so an interrupted run resumes where it left off.
+./venv/bin/python benchmark_flag_aware_decoder.py --k-values 1 2 3 \
+    --decoders pymatching correlated_pymatching flag_aware_reweight flag_aware tesseract
+./venv/bin/python benchmark_flag_aware_decoder.py --plot-only
+```
+
 ## Key Features
 
 - **Same Detector Count**: Both diagonal and standard circuits produce the same number of detectors, ensuring each ancilla connects to the same number of data qubits

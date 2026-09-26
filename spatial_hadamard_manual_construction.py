@@ -2086,7 +2086,9 @@ def generate_two_cube_circuit(
     layer_tree = create_layer_tree(layers, [combined_observable])
     
     # Generate the circuit with detectors (manhattan_radius=0 disables automatic detector computation)
-    circuit = layer_tree.generate_circuit(k, manhattan_radius=manhattan_radius)
+    circuit = layer_tree.generate_circuit(
+        k, manhattan_radius=manhattan_radius, reschedule_measurements=False
+    )
     
     # Apply noise model if provided
     if noise_model is not None:
@@ -2266,7 +2268,9 @@ def generate_two_cube_circuit_y_axis(
     layer_tree = create_layer_tree(layers, [combined_observable])
     
     # Generate the circuit with detectors (manhattan_radius=0 disables automatic detector computation)
-    circuit = layer_tree.generate_circuit(k, manhattan_radius=manhattan_radius)
+    circuit = layer_tree.generate_circuit(
+        k, manhattan_radius=manhattan_radius, reschedule_measurements=False
+    )
     
     # Apply noise model if provided
     if noise_model is not None:

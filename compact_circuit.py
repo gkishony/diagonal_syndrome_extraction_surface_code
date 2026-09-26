@@ -713,7 +713,7 @@ def asap_alap_schedule(circuit: stim.Circuit, remove_noise: bool = False) -> sti
             else:
                 # Fallback - shouldn't happen
                 new_targets.append(stim.target_rec(abs_ref - total_measurements))
-        output.append('DETECTOR', new_targets, orig_inst.gate_args_copy())
+        output.append('DETECTOR', new_targets, orig_inst.gate_args_copy(), tag=orig_inst.tag)
     
     # Add all observables at the end
     for meas_count_at_def, orig_inst, abs_refs in observables:
