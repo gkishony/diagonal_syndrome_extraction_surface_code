@@ -6,9 +6,13 @@ plus the measurements used to evaluate it.
 **Headline result.** Flag-awareness restores the full circuit distance at `k=1`
 (effective distance `1 → 3`, identical to Tesseract) and lifts matching from the
 paper's `2⌊k/2⌋+1` to `2⌈k/2⌉+1` in general — one step better, still one step short
-of Tesseract's `2k+1`. The remaining gap is not a flag problem: it comes from single
-faults whose decomposed pieces land in the same matching problem and are therefore
-charged twice (§4).
+of Tesseract's `2k+1`. The gap it closes and the gap it leaves have the same cause:
+single faults whose decomposed pieces land in the same matching problem and are
+therefore charged twice (§4). Two later findings sharpen this. Only one of the
+decoder's two mechanisms does any work — pricing an unheralded hook as two faults,
+which is the proposal's headline idea, turns out to be inert at every `k` (§4.5).
+And with `flag_config=all` the `k=1` deficit disappears for *plain* matching, so the
+decoder's `k=1` win is really a repair of the sparser `partial` flag set (§7).
 
 ---
 
@@ -57,6 +61,9 @@ Three strategies are built on that graph:
 - **`measure_decoder_fault_distance.py`** — implements §19 of the proposal. Enumerates
   fault sets of increasing weight from the DEM and reports the first weight that fools
   each decoder. A decoder first failing at weight `t+1` has `d_eff = 2t+1`.
+- **`ablate_flag_aware_decoder.py`** — turns the silencing penalty and the shared
+  heralded weight off one at a time, across `k` and flag configurations, and counts
+  mis-decoded fault sets. This is what shows only one of the two matters (§4.5).
 
 ### Repo fixes needed along the way
 
@@ -82,13 +89,17 @@ Three strategies are built on that graph:
 ./venv/bin/python benchmark_flag_aware_decoder.py --k-values 1 2 3 \
     --decoders pymatching correlated_pymatching flag_aware_reweight flag_aware tesseract
 ./venv/bin/python benchmark_flag_aware_decoder.py --plot-only
+
+# which half of the flag conditioning actually matters (§4.5)
+./venv/bin/python ablate_flag_aware_decoder.py --k-values 1 2 --flag-configs partial all
 ```
 
 ---
 
 ## 2. Results
 
-All measurements use axis `y`, `flag_config=partial`, interface-only noise.
+All measurements use axis `y`, interface-only noise, and `flag_config=partial` unless
+stated otherwise; §7 repeats the key ones with `flag_config=all`.
 
 ### 2.1 Fault counting (exhaustive)
 
@@ -191,12 +202,19 @@ because then the edge matching uses is real rather than invented.
 | | pieces with a standalone counterpart | phantom pieces (no such fault) |
 |---|---|---|
 | surface code memory d=5 | 3204 | **0** |
-| spatial Hadamard k=2 | 2337 | 78 |
+| spatial Hadamard k=1 | 755 | **0** |
+| spatial Hadamard k=2, `partial` flags | 2337 | 78 |
+| spatial Hadamard k=2, `all` flags | 2178 | 68 |
 
 The surface code has no phantom pieces at all, which is precisely why decomposed Y
-errors are safe. The Hadamard circuit has 78, and **all 78 sit on flagged mechanisms** —
-zero on unflagged ones. These are the stretched-stabilizer hooks, they are exactly what
-flag conditioning removes, and they are the source of the large k=1 win.
+errors are safe. The Hadamard circuit has some from k=2 on, and **every one of them sits
+on a flagged mechanism** — zero on unflagged ones. These are the stretched-stabilizer
+hooks, and they are exactly what the silencing penalty is meant to remove.
+
+They turn out not to matter, though. At `k=1` there are none at all, yet plain matching
+still fails at a single fault there; and the ablation in §4.5 shows that switching the
+silencing penalty off costs nothing at any `k`. Undercharging is real but never
+decisive — the whole effect, in both directions, is overcharging.
 
 ### 4.2 Overcharging: the part that remains
 
@@ -231,8 +249,8 @@ flag_aware hyperedge  -> L[]      (correct)
 ```
 
 No flag is involved and no phantom edge is involved; the true explanation is simply
-overpriced. Flag conditioning cannot help, which is why re-running with
-`flag_config=all` changed nothing. Hyperedge commitment is the right lever here and does
+overpriced. Flag conditioning cannot help with this particular shot, and adding more
+flags does not fix the class either (§7). Hyperedge commitment is the right lever and does
 fix this shot, but it only proposes mechanisms owning an edge the current solution
 already picked, and in most surviving failures the correct hyperedge appears nowhere in
 the wrong solution.
@@ -264,6 +282,41 @@ it actually costs distance depends on a cheaper wrong path existing nearby, whic
 quantitative property of the interface geometry rather than a clean structural rule. What
 is solid is the empirical part: all phantom pieces are flagged, and every residual
 weight-2 failure uses a piece of a split mechanism.
+
+### 4.5 Which half of the conditioning does the work
+
+`FlagAwareMatching` does two independent things to a flagged hyperedge, and
+`ablate_flag_aware_decoder.py` switches them off one at a time. The **silencing
+penalty** (`flag_silencing_probability`) prices an unheralded hook as the mechanism plus
+the fault needed to keep the flags quiet — this is the proposal's central idea, and the
+fix for undercharging. **Shared weight** (`share_heralded_weight`) spreads a heralded
+mechanism as `p^(1/n)` over its `n` pieces so that using all of them costs one fault
+rather than `n` — the fix for overcharging.
+
+Columns are mis-decoded fault sets: all single faults exhaustively, plus a random sample
+at the weight where failures first appear (30k sets at k=1 and k=2, 1.5k at k=3, ties
+excluded).
+
+| configuration | k=1 `partial` | k=1 `all` | k=2 `partial` | k=2 `all` | k=3 `partial` |
+|---|---|---|---|---|---|
+| | w1 / w2 | w1 / w2 | w1 / w2 | w1 / w2 | w1 / w3 |
+| full decoder | **0** / 102 | 0 / 54 | 0 / 209 | 0 / 86 | 0 / 2 |
+| shared weight OFF | **2** / 132 | 0 / 95 | 0 / 240 | 0 / 91 | 0 / 1 |
+| silencing penalty OFF | **0** / 104 | 0 / 54 | 0 / 220 | 0 / 86 | 0 / 2 |
+| both OFF | **1** / 132 | 0 / 95 | 0 / 250 | 0 / 91 | 0 / 1 |
+
+Read the bolded `k=1 partial` column first: it is the only place where the distance
+itself moves. Turning off shared weight costs two single-fault failures and drops
+`d_eff` from 3 to 1. Turning off the silencing penalty costs nothing. **The entire
+distance gain is the overcharge fix; the proposal's headline mechanism contributes
+nothing measurable anywhere.** It is not a no-op — it does shift the affected weights by
+0.5–1.2 units — it just never changes an outcome, because every interface piece it
+targets already has a standalone counterpart at `p ≈ 3–4e-3`, far above the `6.7e-4`
+hook it is competing with.
+
+Away from the distance threshold the silencing penalty is worth at most 1–5% of the
+residual failures (209 vs 220 at k=2), which is within the run-to-run spread. It could
+be dropped, which would make the decoder simpler and remove a per-shot gating pass.
 
 ---
 
@@ -367,3 +420,42 @@ Two measurement details that changed the numbers materially and are worth keepin
 - **Robust slope fit.** Fitting `d_eff` from the two lowest `p` points is very noisy when
   the lowest point has few observed errors. The fit now drops points with fewer than 10
   errors and takes a least-squares line through the three lowest surviving `p` values.
+
+---
+
+## 7. Flag density: `partial` versus `all`
+
+Everything above used `flag_config=partial`, which flags only some of the stretched
+stabilizers. `all` flags every one of them, which roughly doubles the flag detectors
+(k=1: 12 → 18; k=2: 30 → 50; k=3: 56 → 98) at the cost of extra measurement qubits.
+
+**At k=1 the deficit disappears entirely, for every decoder.** Exhaustively enumerating
+all fault sets up to weight 2, `pymatching`, `correlated_pymatching`, all three
+flag-aware modes and Tesseract *all* first fail at weight 2, i.e. `d_eff = 3 = 2k+1`.
+Plain matching gets the full distance for free, and the flag-aware decoder has nothing
+left to repair. This is confirmed end to end by the sinter sweep:
+
+| decoder | k=1 `partial` | k=1 `all` | k=2 `partial` | k=2 `all` |
+|---|---|---|---|---|
+| pymatching | 1.90 | **2.89** | 3.00 | 2.97 |
+| correlated pymatching | 1.49 | **2.95** | 3.02 | 3.25 |
+| flag-aware (reweight) | 3.20 | 2.88 | 3.06 | 3.44 |
+
+(fitted `d_eff`; true distance is 3 and 5. `benchmark_data/flag_aware_decoder_allflags.csv`.)
+
+**At k=2 it does not restore the distance.** The exhaustive weight-2 scan with `all`
+flags still finds a failure for `pymatching`, `correlated_pymatching` and
+`flag_aware_reweight` alike — `d_eff = 3` against a true distance of 5. Structurally
+this is expected: full flags only take the phantom pieces from 78 down to 68, and §4
+already established that phantom pieces are not what costs the distance.
+
+What full flags *do* buy at k=2 is a substantially lower error rate at fixed distance:
+the weight-2 failure count drops from 209 to 86 per 30k sets (§4.5) and the logical
+error rate at the lowest sampled `p` falls from `1.14e-3` to `3.80e-4` between plain
+matching and flag-aware. The ordering of decoders is preserved, just compressed.
+
+**Net reading.** The `partial` configuration leaves a hole that either more flags or a
+flag-aware decoder can plug, and at k=1 the two are interchangeable — the decoder is the
+cheaper of the two, since it needs no extra qubits. Neither reaches `2k+1` from k=2 on,
+because the obstruction there is the double-charging of split mechanisms, which more
+flags cannot address.
