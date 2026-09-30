@@ -318,6 +318,39 @@ Away from the distance threshold the silencing penalty is worth at most 1–5% o
 residual failures (209 vs 220 at k=2), which is within the run-to-run spread. It could
 be dropped, which would make the decoder simpler and remove a per-shot gating pass.
 
+### 4.6 Mechanisms carrying more than one flag
+
+Heralding is all-or-nothing: a mechanism is recognised only if *every* one of its flags
+fired, so a two-flag hook with just one flag lit stays unheralded and pays the silencing
+penalty. That rule is also what makes it safe to file mechanisms under `min(flags)`
+alone. In the commitment modes an accepted mechanism consumes all of its flags, so a
+second mechanism cannot reuse the same evidence.
+
+Nothing in this circuit carries more than two flags, and two-flag mechanisms are a small
+minority — 18 of 201 flagged mechanisms at k=1 and 50 of 621 at k=2, the same counts for
+either flag density. The one place they behave differently is the silencing price:
+`_silencing_probability` looks for a single fault flipping exactly that pair, and only
+if none exists charges the product of the two single-flag probabilities, which roughly
+doubles the penalty weight. That fallback is used for 12 of 201 mechanisms at k=1 and 40
+of 621 at k=2 with `partial` flags; with `all` flags the DEM contains a direct two-flag
+silencing fault for every pattern that occurs, so it never triggers. No pattern is ever
+left forbidden.
+
+**They do not matter.** Disabling heralding for multi-flag mechanisms entirely leaves
+single-fault failures at zero and barely moves the rest (per 20k sampled weight-2 sets:
+743 → 747 at k=1 `partial`, 147 → 148 at k=2 `partial`, unchanged at 422 and 47 with
+`all` flags). The two single faults that shared weight rescues at k=1 are both on
+single-flag mechanisms, so the distance result does not depend on any of this.
+
+**The gate is loose in both directions, though.** Spurious heralding is common: in
+weight-2 shots a two-flag mechanism is declared heralded more often when it did *not*
+occur than when it did — 5218 versus 2958 at k=1 `partial` — because two independent
+faults each lighting one flag of the pair look exactly like the pair. It is harmless
+here because heralding only makes those pieces cheaper and matching must still explain
+the rest of the syndrome. The mirror-image error also exists and is invisible in these
+counts: two faults sharing a flag detector cancel it, and a mechanism that really did
+occur then goes unheralded and gets penalised.
+
 ---
 
 ## 5. Routes to full distance
